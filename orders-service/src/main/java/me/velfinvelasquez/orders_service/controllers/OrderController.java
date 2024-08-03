@@ -34,6 +34,7 @@ public class OrderController {
         return this.orderService.getAllOrders();
     }
 
+    @SuppressWarnings("unused")
     private ResponseEntity<OrderResponse> placeOrderFallback(OrderRequest orderRequest, Throwable throwable) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
     }
