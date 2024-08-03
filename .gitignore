@@ -34,3 +34,5 @@ build/
 
 ## DB folders
 db/
+
+effective-pom.xml
