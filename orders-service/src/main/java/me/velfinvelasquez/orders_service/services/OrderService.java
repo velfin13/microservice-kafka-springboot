@@ -1,6 +1,5 @@
 package me.velfinvelasquez.orders_service.services;
 
-
 import java.util.List;
 import java.util.UUID;
 
@@ -24,9 +23,9 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
 
-    public void placeOrder(OrderRequest orderRequest) {
+    public OrderResponse placeOrder(OrderRequest orderRequest) {
 
-        //Check for inventory
+        // Check for inventory
         BaseResponse result = this.webClientBuilder.build()
                 .post()
                 .uri("lb://inventory-service/api/inventory/in-stock")
@@ -40,7 +39,8 @@ public class OrderService {
             order.setOrderItems(orderRequest.getOrderItems().stream()
                     .map(orderItemRequest -> mapOrderItemRequestToOrderItem(orderItemRequest, order))
                     .toList());
-            this.orderRepository.save(order);
+            var savedOrder = this.orderRepository.save(order);
+            return mapToOrderResponse(savedOrder);
         } else {
             throw new IllegalArgumentException("Some of the products are not in stock");
         }
@@ -54,12 +54,13 @@ public class OrderService {
     }
 
     private OrderResponse mapToOrderResponse(Order order) {
-        return new OrderResponse(order.getId(), order.getOrderNumber()
-                , order.getOrderItems().stream().map(this::mapToOrderItemRequest).toList());
+        return new OrderResponse(order.getId(), order.getOrderNumber(),
+                order.getOrderItems().stream().map(this::mapToOrderItemRequest).toList());
     }
 
     private OrderItemsResponse mapToOrderItemRequest(OrderItems orderItems) {
-        return new OrderItemsResponse(orderItems.getId(), orderItems.getSku(), orderItems.getPrice(), orderItems.getQuantity());
+        return new OrderItemsResponse(orderItems.getId(), orderItems.getSku(), orderItems.getPrice(),
+                orderItems.getQuantity());
     }
 
     private OrderItems mapOrderItemRequestToOrderItem(OrderItemRequest orderItemRequest, Order order) {
