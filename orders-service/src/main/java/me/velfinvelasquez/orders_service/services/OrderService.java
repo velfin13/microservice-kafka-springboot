@@ -3,10 +3,12 @@ package me.velfinvelasquez.orders_service.services;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import lombok.RequiredArgsConstructor;
+import me.velfinvelasquez.orders_service.event.OrderEvent;
 import me.velfinvelasquez.orders_service.models.dtos.BaseResponse;
 import me.velfinvelasquez.orders_service.models.dtos.OrderItemRequest;
 import me.velfinvelasquez.orders_service.models.dtos.OrderItemsResponse;
@@ -14,7 +16,9 @@ import me.velfinvelasquez.orders_service.models.dtos.OrderRequest;
 import me.velfinvelasquez.orders_service.models.dtos.OrderResponse;
 import me.velfinvelasquez.orders_service.models.entities.Order;
 import me.velfinvelasquez.orders_service.models.entities.OrderItems;
+import me.velfinvelasquez.orders_service.models.enums.OrderStatus;
 import me.velfinvelasquez.orders_service.repositories.OrderRepository;
+import me.velfinvelasquez.orders_service.utils.JsonUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +26,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final WebClient.Builder webClientBuilder;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
     public OrderResponse placeOrder(OrderRequest orderRequest) {
 
@@ -40,6 +45,11 @@ public class OrderService {
                     .map(orderItemRequest -> mapOrderItemRequestToOrderItem(orderItemRequest, order))
                     .toList());
             var savedOrder = this.orderRepository.save(order);
+            
+            //TODO: Send message to order topic
+            this.kafkaTemplate.send("orders-topic", JsonUtils.toJson(
+                    new OrderEvent(savedOrder.getOrderNumber(), savedOrder.getOrderItems().size(), OrderStatus.PLACED)
+            ));
             return mapToOrderResponse(savedOrder);
         } else {
             throw new IllegalArgumentException("Some of the products are not in stock");

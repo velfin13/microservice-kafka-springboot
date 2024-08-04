@@ -1,4 +1,8 @@
-version: '3'
+version: '3.7'
+
+x-zoo: &zoo "kafka-1:2888:3888;kafka-2:2888:3888;kafka-3:2888:3888"
+x-kafkaZookeepers: &kafkaZookeepers "kafka-1:2181,kafka-2:2181,kafka-3:2181"
+x-kafkaBrokers: &kafkaBrokers "kafka-1:9092"
 
 services:
   ### Posgres database for Inventory
@@ -90,3 +94,71 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_HTTP_PORT: 8181
+
+  ### kafka configuration
+
+  # zookeeper
+  zookeeper:
+    image: zookeeper
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+      - "2888:2888"
+      - "3888:3888"
+    extra_hosts:
+      - "kafka-1:192.168.0.105"
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_QUORUM_LISTEN_ON_ALL_IPS: 'true'
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_PEER_PORT: 2888
+      ZOOKEEPER_LEADER_PORT: 3888
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+      ZOOKEEPER_SERVERS: *zoo
+    volumes:
+      - ./db/zookeeper_data:/data
+      - ./db/zookeeper_datalog:/datalog
+
+  # broker
+  broker:
+    image: bitnami/kafka
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    extra_hosts:
+      - "kafka-1:192.168.0.105"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENERS: OUTSIDE://0.0.0.0:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: OUTSIDE:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: OUTSIDE://192.168.0.105:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: OUTSIDE
+      KAFKA_ZOOKEEPER_CONNECT: *kafkaZookeepers
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_MESSAGE_TIMESTAMP_TYPE: 'LogAppendTime'
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONNECTIONS_MAX_IDLE_MS: 31536000000 # 1 year
+    volumes:
+      - ./db/kafka_data:/var/lib/kafka/data
+
+  #kafka ui 
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    hostname: kafka-ui
+    container_name: kafka-ui
+    depends_on:
+      - broker
+    ports:
+      - "8084:8080"
+    extra_hosts:
+      - "kafka-1:192.168.0.105"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local_kafka
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: *kafkaBrokers
+      KAFKA_CLUSTERS_0_ZOOKEEPER: *kafkaZookeepers

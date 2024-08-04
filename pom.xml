@@ -23,6 +23,7 @@
 
     <modules>
         <module>eureka-server</module>
+        <module>notification-service</module>
         <module>api-gateway</module>
         <module>inventory-service</module>
         <module>orders-service</module>
